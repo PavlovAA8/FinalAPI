@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'FinalAPI',
     'rest_framework_swagger',
+    'APIpj',
 ]
 
 MIDDLEWARE = [
@@ -119,9 +120,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 
@@ -153,3 +154,9 @@ REST_FRAMEWORK ={
         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
     ]
 }
+
+LOCAL_APPS = [
+    'APIpj',
+]
+
+AUTH_USER_MODEL = 'APIpj.User'
