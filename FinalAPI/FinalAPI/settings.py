@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework_swagger',
     'APIpj',
     "django_filters",
+    "drf_yasg",
 ]
 
 MIDDLEWARE = [
@@ -79,15 +80,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'FinalAPI.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 
 DATABASES = {
     "default": {

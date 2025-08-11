@@ -7,7 +7,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True, validators=[EmailValidator()])
     first_name = models.CharField(max_length=50, verbose_name='Фамилия')
     last_name = models.CharField(max_length=50, verbose_name='Имя')
-    patronymic = models.CharField(max_length=50, verbose_name='Отчество')
+    patronymic = models.CharField(max_length=50, blank=True, null=True, verbose_name='Отчество')
     phone = models.CharField(max_length=16, verbose_name='Телефон')
 
     class Meta:
