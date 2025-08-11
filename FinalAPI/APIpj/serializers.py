@@ -1,9 +1,9 @@
 import random
 import string
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
-from .models import User, Coords, Level, Image, ActivityType, PerevalAdded
+from .models import User, Coords, Level, Image, ActivityType, PerevalAdded, PerevalImage
 
 
 class ActivityTypeSerializer(serializers.ModelSerializer):
@@ -41,11 +41,15 @@ class LevelSerializer(serializers.ModelSerializer):
 
 
 class ImageSerializer(serializers.ModelSerializer):
+
     url = serializers.SerializerMethodField()
+
+    data = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
         model = Image
-        fields = ("id", "title", "date_added", "url")
+        fields = ("id", "title", "date_added", "url", "data")
+        read_only_fields = ("id", "date_added", "url")
 
     def get_url(self, obj: Image) -> str:
         request = self.context.get("request")
@@ -59,6 +63,7 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
     coords = CoordsSerializer()
     level = LevelSerializer()
     activity_type = serializers.PrimaryKeyRelatedField(queryset=ActivityType.objects.all())
+    images = ImageSerializer(many=True, required=False)
 
     class Meta:
         model = PerevalAdded
@@ -71,6 +76,7 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
             "coords",
             "level",
             "activity_type",
+            "images",
         )
 
     @transaction.atomic
@@ -79,6 +85,9 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
         coords_data: Dict[str, Any] = validated_data.pop("coords")
         level_data: Dict[str, Any] = validated_data.pop("level")
         activity: ActivityType = validated_data.pop("activity_type")
+
+
+        images_data: Optional[List[Dict[str, Any]]] = validated_data.pop("images", None)
 
         email = (user_data or {}).get("email")
         phone = (user_data or {}).get("phone")
@@ -111,7 +120,6 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
                 suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
                 username = f"{candidate[:143]}_{suffix}"
 
-
             defaults = {k: v for k, v in user_data.items() if k not in ("email", "phone")}
             defaults["username"] = username
 
@@ -129,6 +137,7 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
         coords = Coords.objects.create(**coords_data)
         level = Level.objects.create(**level_data)
 
+
         pereval = PerevalAdded.objects.create(
             user=user,
             coords=coords,
@@ -136,4 +145,18 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
             activity_type=activity,
             **validated_data,
         )
+
+
+        if images_data:
+            for img in images_data:
+
+                file_obj = img.get("data")
+                title = img.get("title") or getattr(file_obj, "name", "")
+
+
+                image_obj = Image.objects.create(data=file_obj, title=title)
+
+
+                PerevalImage.objects.create(pereval=pereval, image=image_obj)
+
         return pereval
