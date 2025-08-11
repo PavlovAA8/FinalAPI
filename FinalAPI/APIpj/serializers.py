@@ -41,9 +41,7 @@ class LevelSerializer(serializers.ModelSerializer):
 
 
 class ImageSerializer(serializers.ModelSerializer):
-
     url = serializers.SerializerMethodField()
-
     data = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
@@ -81,20 +79,24 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data: Dict[str, Any]) -> PerevalAdded:
+        # Берём вложенные части payload и удаляем их из validated_data,чтобы не передавать лишние поля в конструктор PerevalAdded
         user_data: Dict[str, Any] = validated_data.pop("user")
         coords_data: Dict[str, Any] = validated_data.pop("coords")
         level_data: Dict[str, Any] = validated_data.pop("level")
         activity: ActivityType = validated_data.pop("activity_type")
 
-
+        # извлекаем картинку если существует, прежде чем пробрасывать validated_data в модель PerevalAdded
         images_data: Optional[List[Dict[str, Any]]] = validated_data.pop("images", None)
-
+ 
+        # ПОлучаем email/phone для поиска существующего пользователя или создания нового
         email = (user_data or {}).get("email")
         phone = (user_data or {}).get("phone")
 
+        # миинимальная валидация
         if not email and not phone:
             raise serializers.ValidationError({"user": "Email или номер телефона уже зарегистрированы."})
 
+        # поиск пользователя по email и по телефону
         user_by_email = User.objects.filter(email=email).first() if email else None
         user_by_phone = User.objects.filter(phone=phone).first() if phone else None
 
@@ -103,6 +105,7 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
                 {"user": "Email и номер телефона уже зарегистрированы."}
             )
 
+        # Если найден хотя бы один — используем его
         user = user_by_email or user_by_phone
 
         if user is None:
@@ -112,17 +115,20 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
                 candidate = "user"
 
             attempt = 0
+            # получаем уникальное имя пользователя
             username = candidate
             while User.objects.filter(username=username).exists() and attempt < 5:
                 attempt += 1
                 username = f"{candidate[:140]}{attempt}"
+            # если полдьзователь существует, то для нового добавляем случайный символ для регистрации
             if User.objects.filter(username=username).exists():
                 suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
                 username = f"{candidate[:143]}_{suffix}"
 
             defaults = {k: v for k, v in user_data.items() if k not in ("email", "phone")}
             defaults["username"] = username
-
+            
+            #проверка наличия аналогичных данных в БД. Если нет - создается user, иначе подставляется имебщейся
             try:
                 user = User.objects.create(email=email, phone=phone, **defaults)
             except IntegrityError:
@@ -137,7 +143,7 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
         coords = Coords.objects.create(**coords_data)
         level = Level.objects.create(**level_data)
 
-
+        # создаём запись PerevalAdded без картинки
         pereval = PerevalAdded.objects.create(
             user=user,
             coords=coords,
@@ -146,17 +152,11 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
             **validated_data,
         )
 
-
+        # теперь создаём связанные изображения (если были)
         if images_data:
             for img in images_data:
-
                 file_obj = img.get("data")
                 title = img.get("title") or getattr(file_obj, "name", "")
-
-
                 image_obj = Image.objects.create(data=file_obj, title=title)
-
-
                 PerevalImage.objects.create(pereval=pereval, image=image_obj)
-
         return pereval
