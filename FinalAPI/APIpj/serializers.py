@@ -1,38 +1,31 @@
-from typing import Any, Dict
-from django.db import transaction, IntegrityError
-from rest_framework import serializers
-from .models import (
-    User,
-    Coords,
-    Level,
-    Image,
-    ActivityType,
-    PerevalAdded,
-)
+import random
+import string
 from typing import Any, Dict
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
-import random, string
+from .models import User, Coords, Level, Image, ActivityType, PerevalAdded
 
-from .models import User, Coords, Level, ActivityType, PerevalAdded
 
 class ActivityTypeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ActivityType
-        fields = ("title")
+        fields = ("title",)
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    phone = serializers.CharField()
+
     class Meta:
         model = User
         fields = ("email", "first_name", "last_name", "patronymic", "phone")
+        extra_kwargs = {"first_name": {"required": True}, "last_name": {"required": True}}
 
 
 class UserOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("email", "first_name", "last_name", "patronymic", "phone")
+        fields = ("email", "first_name", "last_name", "patronymic", "phone", "username")
 
 
 class CoordsSerializer(serializers.ModelSerializer):
@@ -80,41 +73,67 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
             "activity_type",
         )
 
-
     @transaction.atomic
     def create(self, validated_data: Dict[str, Any]) -> PerevalAdded:
-        user_data = validated_data.pop("user")
-        coords_data = validated_data.pop("coords")
-        level_data = validated_data.pop("level")
+        user_data: Dict[str, Any] = validated_data.pop("user")
+        coords_data: Dict[str, Any] = validated_data.pop("coords")
+        level_data: Dict[str, Any] = validated_data.pop("level")
         activity: ActivityType = validated_data.pop("activity_type")
 
-        email = user_data.get("email")
-        if not email:
-            raise serializers.ValidationError({"user": "email is required"})
+        email = (user_data or {}).get("email")
+        phone = (user_data or {}).get("phone")
 
-        # generate safe username
-        base = user_data.get("username") or email.split("@", 1)[0]
-        username = "".join(ch for ch in base if ch.isalnum() or ch in ("-", "_")).lower()[:150]
-        attempt = 0
-        while User.objects.filter(username=username).exists() and attempt < 5:
-            attempt += 1
-            username = f"{base[:140]}{attempt}"
-        if User.objects.filter(username=username).exists():
-            suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
-            username = f"{base[:143]}_{suffix}"
+        if not email and not phone:
+            raise serializers.ValidationError({"user": "Email или номер телефона уже зарегистрированы."})
 
-        defaults = {**user_data, "username": username}
+        user_by_email = User.objects.filter(email=email).first() if email else None
+        user_by_phone = User.objects.filter(phone=phone).first() if phone else None
 
-        try:
-            user, _ = User.objects.get_or_create(email=email, defaults=defaults)
-        except IntegrityError:
-            # concurrent insert fallback
-            user = User.objects.get(email=email)
+        if user_by_email and user_by_phone and user_by_email.id != user_by_phone.id:
+            raise serializers.ValidationError(
+                {"user": "Email и номер телефона уже зарегистрированы."}
+            )
+
+        user = user_by_email or user_by_phone
+
+        if user is None:
+            base = (email.split("@", 1)[0] if email else "user").strip() or "user"
+            candidate = "".join(ch for ch in base if ch.isalnum() or ch in ("-", "_")).lower()[:150]
+            if not candidate:
+                candidate = "user"
+
+            attempt = 0
+            username = candidate
+            while User.objects.filter(username=username).exists() and attempt < 5:
+                attempt += 1
+                username = f"{candidate[:140]}{attempt}"
+            if User.objects.filter(username=username).exists():
+                suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+                username = f"{candidate[:143]}_{suffix}"
+
+
+            defaults = {k: v for k, v in user_data.items() if k not in ("email", "phone")}
+            defaults["username"] = username
+
+            try:
+                user = User.objects.create(email=email, phone=phone, **defaults)
+            except IntegrityError:
+                user = None
+                if email:
+                    user = User.objects.filter(email=email).first()
+                if user is None and phone:
+                    user = User.objects.filter(phone=phone).first()
+                if user is None:
+                    raise
 
         coords = Coords.objects.create(**coords_data)
         level = Level.objects.create(**level_data)
 
         pereval = PerevalAdded.objects.create(
-            user=user, coords=coords, level=level, activity_type=activity, **validated_data
+            user=user,
+            coords=coords,
+            level=level,
+            activity_type=activity,
+            **validated_data,
         )
         return pereval

@@ -1,11 +1,10 @@
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from django.http import HttpRequest
-from rest_framework import parsers, permissions, status, generics
+from rest_framework import parsers, permissions, generics
 from rest_framework.response import Response
-
 from .serializers import PerevalCreateSerializer
-from .models import PerevalAdded, Coords, Level, Image, ActivityType
+from .models import PerevalAdded
 
 _INDEXED_IMG_RE = re.compile(r"^images\[(\d+)\]\.data$")
 _INDEXED_TITLE_RE = re.compile(r"^images\[(\d+)\]\.title$")
