@@ -65,8 +65,8 @@ class ActivityType(models.Model):
         return self.title
 
     class Meta:
-        verbose_name = "Тип активности"
-        verbose_name_plural = "Типы активности"
+        verbose_name = "Вид активности"
+        verbose_name_plural = "Виды активности"
 
 
 class PerevalAdded(models.Model):
