@@ -9,7 +9,12 @@ from .models import (
     ActivityType,
     PerevalAdded,
 )
+from typing import Any, Dict
+from django.db import IntegrityError, transaction
+from rest_framework import serializers
+import random, string
 
+from .models import User, Coords, Level, ActivityType, PerevalAdded
 
 class ActivityTypeSerializer(serializers.ModelSerializer):
 
@@ -83,19 +88,33 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
         level_data = validated_data.pop("level")
         activity: ActivityType = validated_data.pop("activity_type")
 
+        email = user_data.get("email")
+        if not email:
+            raise serializers.ValidationError({"user": "email is required"})
+
+        # generate safe username
+        base = user_data.get("username") or email.split("@", 1)[0]
+        username = "".join(ch for ch in base if ch.isalnum() or ch in ("-", "_")).lower()[:150]
+        attempt = 0
+        while User.objects.filter(username=username).exists() and attempt < 5:
+            attempt += 1
+            username = f"{base[:140]}{attempt}"
+        if User.objects.filter(username=username).exists():
+            suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            username = f"{base[:143]}_{suffix}"
+
+        defaults = {**user_data, "username": username}
+
         try:
-            user, _ = User.objects.get_or_create(email=user_data["email"], defaults=user_data)
+            user, _ = User.objects.get_or_create(email=email, defaults=defaults)
         except IntegrityError:
-            user = User.objects.get(email=user_data["email"])
+            # concurrent insert fallback
+            user = User.objects.get(email=email)
 
         coords = Coords.objects.create(**coords_data)
         level = Level.objects.create(**level_data)
 
         pereval = PerevalAdded.objects.create(
-            user=user,
-            coords=coords,
-            level=level,
-            activity_type=activity,
-            **validated_data,
+            user=user, coords=coords, level=level, activity_type=activity, **validated_data
         )
         return pereval
