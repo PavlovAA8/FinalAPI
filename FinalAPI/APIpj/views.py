@@ -5,6 +5,7 @@ from rest_framework import parsers, permissions, generics
 from rest_framework.response import Response
 from .serializers import PerevalCreateSerializer, PerevalDetailSerializer
 from .models import PerevalAdded
+from django_filters.rest_framework import DjangoFilterBackend
 
 # Регулярки для ключей вида images
 _INDEXED_IMG_RE = re.compile(r"^images\[(\d+)\]\.data$")
@@ -78,6 +79,21 @@ class SubmitDataCreateAPIView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
     serializer_class = PerevalCreateSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["user__email"]
+
+
+    def get_queryset(self):
+        # Скрыл отображение спискка при POST запрсое
+        if self.request.method == "GET":
+            email = self.request.query_params.get("user__email")
+            if not email:
+                return PerevalAdded.objects.none()
+            return self.queryset.filter(user__email=email)
+        return super().get_queryset()
+    
+    def get_serializer_class(self):
+        return PerevalCreateSerializer if self.request.method == "POST" else PerevalDetailSerializer
 
     def create(self, request, *args, **kwargs):
         try:
