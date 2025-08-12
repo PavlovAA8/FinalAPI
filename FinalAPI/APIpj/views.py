@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from django.http import HttpRequest
 from rest_framework import parsers, permissions, generics
 from rest_framework.response import Response
-from .serializers import PerevalCreateSerializer, PerevalDetailSerializer
+from .serializers import PerevalCreateSerializer, PerevalDetailSerializer, PerevalUpdateSerializer
 from .models import PerevalAdded
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -74,11 +74,10 @@ def _normalize_payload(request: HttpRequest) -> Dict[str, Any]:
     return payload
 
 
-class SubmitDataCreateAPIView(generics.CreateAPIView):
+class SubmitDataCreateAPIView(generics.ListCreateAPIView):
     queryset = PerevalAdded.objects.all()
     permission_classes = [permissions.AllowAny]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
-    serializer_class = PerevalCreateSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["user__email"]
 
@@ -118,11 +117,50 @@ class SubmitDataCreateAPIView(generics.CreateAPIView):
             message = str(exc)
             return Response({"status": 500, "message": message, "id": None}, status=500)
         
-class SubmitDataRetrieveAPIView(generics.RetrieveAPIView):
+class SubmitDataRetrieveAPIView(generics.RetrieveUpdateAPIView):
     queryset = PerevalAdded.objects.all()
     permission_classes = [permissions.AllowAny]
-    serializer_class = PerevalDetailSerializer
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
 
     # используем параметр id, поэтому указываем lookup_url_kwarg='id'.
     lookup_field = "id"
     lookup_url_kwarg = "id"
+
+    def get_serializer_class(self):
+        return PerevalUpdateSerializer if self.request.method in ("PUT", "PATCH") else PerevalDetailSerializer
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            if instance.status != "new":
+                return Response(
+                    {"state": 0, "message": f"Запись со статусом '{instance.get_status_display()}' не может изменяться. Только 'New' "},
+                    status=400,
+                )
+
+            payload = _normalize_payload(request)
+
+            # запрещаем изменять данные пользователя
+            user_data = payload.get("user", {})
+            if user_data:
+                forbidden = ["first_name", "last_name", "patronymic", "email", "phone"]
+                touched = [f for f in forbidden if f in user_data]
+                if touched:
+                    return Response(
+                        {"state": 0, "message": f"Данные пользователя изменять нельзя: {', '.join(touched)}"},
+                        status=400,
+                    )
+
+            images = _extract_images(request)
+            if images:
+                payload["images"] = images
+
+            serializer = self.get_serializer(instance, data=payload, partial=True)
+            if not serializer.is_valid():
+                return Response({"state": 0, "message": f"Ошибка валидации: {serializer.errors}"}, status=400)
+
+            serializer.save()
+            return Response({"state": 1, "message": "Данные обновлены:"}, status=200)
+
+        except Exception as exc:
+            return Response({"state": 0, "message": f"Ошибка обнволения: {str(exc)}"}, status=500)

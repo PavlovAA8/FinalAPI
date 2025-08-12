@@ -190,3 +190,51 @@ class PerevalDetailSerializer(serializers.ModelSerializer):
     def get_images(self, obj: PerevalAdded) -> List[Dict[str, Any]]:
         qs = PerevalImage.objects.filter(pereval=obj).select_related("image").order_by("id")
         return [ImageSerializer(pi.image, context=self.context).data for pi in qs]
+    
+class PerevalUpdateSerializer(serializers.ModelSerializer):
+    coords = CoordsSerializer(required=False)
+    level = LevelSerializer(required=False)
+    activity_type = serializers.PrimaryKeyRelatedField(queryset=ActivityType.objects.all(), required=False)
+    images = ImageSerializer(many=True, required=False)
+
+    class Meta:
+        model = PerevalAdded
+        fields = (
+            "beauty_title",
+            "title",
+            "other_titles",
+            "connect",
+            "coords",
+            "level",
+            "activity_type",
+            "images",
+        )
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        coords_data = validated_data.pop("coords", None)
+        if coords_data:
+            coords_ser = CoordsSerializer(instance.coords, data=coords_data, partial=True)
+            coords_ser.is_valid(raise_exception=True)
+            coords_ser.save()
+
+        level_data = validated_data.pop("level", None)
+        if level_data:
+            level_ser = LevelSerializer(instance.level, data=level_data, partial=True)
+            level_ser.is_valid(raise_exception=True)
+            level_ser.save()
+
+        images_data = validated_data.pop("images", None)
+        if images_data is not None:
+            PerevalImage.objects.filter(pereval=instance).delete()
+            for img in images_data:
+                file_obj = img.get("data")
+                title = img.get("title") or getattr(file_obj, "name", "")
+                image_obj = Image.objects.create(data=file_obj, title=title)
+                PerevalImage.objects.create(pereval=instance, image=image_obj)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
