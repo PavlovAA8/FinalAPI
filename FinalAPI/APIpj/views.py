@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from django.http import HttpRequest
 from rest_framework import parsers, permissions, generics
 from rest_framework.response import Response
-from .serializers import PerevalCreateSerializer
+from .serializers import PerevalCreateSerializer, PerevalDetailSerializer
 from .models import PerevalAdded
 
 # Регулярки для ключей вида images
@@ -81,7 +81,6 @@ class SubmitDataCreateAPIView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         try:
-            #Нормализуем полезную нагрузку
             payload = _normalize_payload(request)
             # извлекаем картинки и кладём их в payload ывиде списка
             images = _extract_images(request)
@@ -90,7 +89,7 @@ class SubmitDataCreateAPIView(generics.CreateAPIView):
 
             # валидируем и создаём объект через сериализатор
             serializer = self.get_serializer(data=payload)
-            # Проверка на ошибки
+            #Проверка на ошибки
             if not serializer.is_valid():
                 errors = serializer.errors
                 message = f"Validation error: {errors}"
@@ -102,3 +101,12 @@ class SubmitDataCreateAPIView(generics.CreateAPIView):
         except Exception as exc:
             message = str(exc)
             return Response({"status": 500, "message": message, "id": None}, status=500)
+        
+class SubmitDataRetrieveAPIView(generics.RetrieveAPIView):
+    queryset = PerevalAdded.objects.all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = PerevalDetailSerializer
+
+    # используем параметр id, поэтому указываем lookup_url_kwarg='id'.
+    lookup_field = "id"
+    lookup_url_kwarg = "id"
