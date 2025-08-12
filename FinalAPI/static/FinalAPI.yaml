@@ -1,0 +1,502 @@
+openapi: 3.0.3
+info:
+  title: FinalAPI
+  version: '3'
+  description: 'Pereval REST API — это DRF-приложение для управления данными о горных перевалах. API позволяет создавать, получать, редактировать и фильтровать записи о перевалах, включая информацию о пользователях, координатах, уровнях сложности и изображениях. Проект включает автоматические тесты, интерактивную Swagger-документацию и линтеры для форматирования кода. by Павлов Артём'
+paths:
+  /api/submitData/:
+    get:
+      summary: 'Получить информацию о перевале.'
+      operationId: api_submitData_list
+      description: 'Получить информацию о перевале.'
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Количество результатов, возвращаемых на страницу.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: Начальный индекс, по которому будут выводиться результаты.
+        schema:
+          type: integer
+      - in: query
+        name: user__email
+        description: Email для поиска.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPerevalDetailList'
+          description: 'Получить информацию о перевале.'
+    post:
+      summary: 'Добавить информацию о перевале.'
+      operationId: api_submitData_create
+      description: 'Добавить информацию о перевале.'
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PerevalCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PerevalCreate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerevalCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerevalCreate'
+          description: ''
+  /api/submitData/{id}/:
+    get:
+      summary: 'Получить информацию о конкретном перевале по ID.'
+      operationId: api_submitData_retrieve
+      description: 'Получить информацию о конкретном перевале по ID.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerevalDetail'
+          description: ''
+    put:
+      summary: 'Полностью перезаписать информацию о перевале.'
+      operationId: api_submitData_update
+      description: 'Полностью перезаписать информацию о перевале.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PerevalUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PerevalUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerevalUpdate'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerevalUpdate'
+          description: ''
+    patch:
+      summary: 'Частично изменить информацию о перевале.'
+      operationId: api_submitData_partial_update
+      description: 'Частично изменить информацию о перевале.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPerevalUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPerevalUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPerevalUpdate'
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerevalUpdate'
+          description: ''
+components:
+  schemas:
+    ActivityType:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+      required:
+      - title
+    Coords:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          title: Широта
+        longitude:
+          type: number
+          format: double
+          title: Долгота
+        height:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: Высота
+      required:
+      - height
+      - latitude
+      - longitude
+    Image:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Название
+          maxLength: 255
+        date_added:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Дата добавления
+        url:
+          type: string
+          readOnly: true
+        data:
+          type: string
+          format: uri
+          writeOnly: true
+      required:
+      - date_added
+      - id
+      - title
+      - url
+    Level:
+      type: object
+      properties:
+        winter:
+          type: string
+          nullable: true
+          title: Зима
+          maxLength: 10
+        summer:
+          type: string
+          nullable: true
+          title: Лето
+          maxLength: 10
+        autumn:
+          type: string
+          nullable: true
+          title: Осень
+          maxLength: 10
+        spring:
+          type: string
+          nullable: true
+          title: Весна
+          maxLength: 10
+    PaginatedPerevalDetailList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerevalDetail'
+    PatchedPerevalUpdate:
+      type: object
+      properties:
+        beauty_title:
+          type: string
+          title: Красивое название
+          maxLength: 255
+        title:
+          type: string
+          title: Название
+          maxLength: 255
+        other_titles:
+          type: string
+          nullable: true
+          title: Другие названия
+          maxLength: 255
+        connect:
+          type: string
+          nullable: true
+          title: Что соединяет
+        coords:
+          $ref: '#/components/schemas/Coords'
+        level:
+          $ref: '#/components/schemas/Level'
+        activity_type:
+          type: integer
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+    PerevalCreate:
+      type: object
+      properties:
+        beauty_title:
+          type: string
+          title: Красивое название
+          maxLength: 255
+        title:
+          type: string
+          title: Название
+          maxLength: 255
+        other_titles:
+          type: string
+          nullable: true
+          title: Другие названия
+          maxLength: 255
+        connect:
+          type: string
+          nullable: true
+          title: Что соединяет
+        user:
+          $ref: '#/components/schemas/UserCreate'
+        coords:
+          $ref: '#/components/schemas/Coords'
+        level:
+          $ref: '#/components/schemas/Level'
+        activity_type:
+          type: integer
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+      required:
+      - activity_type
+      - beauty_title
+      - coords
+      - level
+      - title
+      - user
+    PerevalDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        beauty_title:
+          type: string
+          title: Красивое название
+          maxLength: 255
+        title:
+          type: string
+          title: Название
+          maxLength: 255
+        other_titles:
+          type: string
+          nullable: true
+          title: Другие названия
+          maxLength: 255
+        connect:
+          type: string
+          nullable: true
+          title: Что соединяет
+        add_time:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Дата добавления
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+          title: Статус
+        user:
+          $ref: '#/components/schemas/UserOutput'
+        coords:
+          $ref: '#/components/schemas/Coords'
+        level:
+          $ref: '#/components/schemas/Level'
+        activity_type:
+          $ref: '#/components/schemas/ActivityType'
+        images:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - activity_type
+      - add_time
+      - beauty_title
+      - coords
+      - id
+      - images
+      - level
+      - status
+      - title
+      - user
+    PerevalUpdate:
+      type: object
+      properties:
+        beauty_title:
+          type: string
+          title: Красивое название
+          maxLength: 255
+        title:
+          type: string
+          title: Название
+          maxLength: 255
+        other_titles:
+          type: string
+          nullable: true
+          title: Другие названия
+          maxLength: 255
+        connect:
+          type: string
+          nullable: true
+          title: Что соединяет
+        coords:
+          $ref: '#/components/schemas/Coords'
+        level:
+          $ref: '#/components/schemas/Level'
+        activity_type:
+          type: integer
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+      required:
+      - beauty_title
+      - title
+    StatusEnum:
+      enum:
+      - new
+      - pending
+      - accepted
+      - rejected
+      type: string
+      description: |-
+        * `new` - Новый
+        * `pending` - В работе
+        * `accepted` - Принят
+        * `rejected` - Отклонен
+    UserCreate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+          title: Имя
+          maxLength: 50
+        last_name:
+          type: string
+          title: Фамилия
+          maxLength: 50
+        patronymic:
+          type: string
+          nullable: true
+          title: Отчество
+          maxLength: 50
+        phone:
+          type: string
+      required:
+      - email
+      - first_name
+      - last_name
+      - phone
+    UserOutput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          title: Имя
+          maxLength: 50
+        last_name:
+          type: string
+          title: Фамилия
+          maxLength: 50
+        patronymic:
+          type: string
+          nullable: true
+          title: Отчество
+          maxLength: 50
+        phone:
+          type: string
+          title: Телефон
+          maxLength: 16
+        username:
+          type: string
+          title: Имя пользователя
+          description: Обязательное поле. Не более 150 символов. Только буквы, цифры
+            и символы @/./+/-/_.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+      required:
+      - email
+      - first_name
+      - last_name
+      - phone
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

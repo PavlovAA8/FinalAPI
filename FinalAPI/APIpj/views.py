@@ -157,10 +157,12 @@ class SubmitDataRetrieveAPIView(generics.RetrieveUpdateAPIView):
 
             serializer = self.get_serializer(instance, data=payload, partial=True)
             if not serializer.is_valid():
-                return Response({"state": 0, "message": f"Ошибка валидации: {serializer.errors}"}, status=400)
+                errors = serializer.errors
+                message = f"Validation error: {errors}"
+                return Response({"state": 0, "message": message}, status=400)
 
             serializer.save()
-            return Response({"state": 1, "message": "Данные обновлены:"}, status=200)
+            return Response({"state": 1, "message": None}, status=200)
 
         except Exception as exc:
-            return Response({"state": 0, "message": f"Ошибка обнволения: {str(exc)}"}, status=500)
+            return Response({"state": 0, "message": message}, status=500)
