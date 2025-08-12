@@ -160,3 +160,33 @@ class PerevalCreateSerializer(serializers.ModelSerializer):
                 image_obj = Image.objects.create(data=file_obj, title=title)
                 PerevalImage.objects.create(pereval=pereval, image=image_obj)
         return pereval
+    
+class PerevalDetailSerializer(serializers.ModelSerializer):
+    user = UserOutputSerializer()
+    coords = CoordsSerializer()
+    level = LevelSerializer()
+    activity_type = ActivityTypeSerializer()
+    # используем SerializerMethodField, потому что в модели изображения связаны через PerevalImage
+    images = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PerevalAdded
+        fields = (
+            "id",
+            "beauty_title",
+            "title",
+            "other_titles",
+            "connect",
+            "add_time", 
+            "status",
+            "user",
+            "coords",
+            "level",
+            "activity_type",
+            "images",
+        )
+        read_only_fields = ("id", "add_time", "status")
+
+    def get_images(self, obj: PerevalAdded) -> List[Dict[str, Any]]:
+        qs = PerevalImage.objects.filter(pereval=obj).select_related("image").order_by("id")
+        return [ImageSerializer(pi.image, context=self.context).data for pi in qs]

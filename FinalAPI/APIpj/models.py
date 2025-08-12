@@ -4,8 +4,8 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     email = models.EmailField(unique=True, validators=[EmailValidator()])
-    first_name = models.CharField(max_length=50, verbose_name='Фамилия')
-    last_name = models.CharField(max_length=50, verbose_name='Имя')
+    first_name = models.CharField(max_length=50, verbose_name='Имя')
+    last_name = models.CharField(max_length=50, verbose_name='Фамилия')
     patronymic = models.CharField(max_length=50, blank=True, null=True, verbose_name='Отчество')
     phone = models.CharField(max_length=16, verbose_name='Телефон', unique=True,)
 
